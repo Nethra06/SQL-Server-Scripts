@@ -1,0 +1,21 @@
+DECLARE @dbid tinyint
+DECLARE @spid smallint
+DECLARE @exec_str varchar(10)
+
+
+-- Get the ID of the Database you wish to kill the connections of
+SET @dbid = DB_ID('database_name')
+
+-- Set a var to the first process ID connecting to that database
+SET @spid = (SELECT MIN(spid) FROM master..sysprocesses WHERE dbid = @dbid)
+
+WHILE @spid IS NOT NULL
+BEGIN
+ IF @spid <> @@SPID -- Make sure you don't drop your own connection
+ BEGIN
+ SET @exec_str = 'KILL '+LTRIM(STR(@spid))
+ EXEC(@exec_str) -- Kill the connection
+ END
+ --Get next SPID
+ SET @spid = (SELECT MIN(spid) FROM master..sysprocesses WHERE dbid = @dbid AND spid > @spid)
+END 

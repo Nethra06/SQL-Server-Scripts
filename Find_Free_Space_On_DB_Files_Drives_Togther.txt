@@ -1,0 +1,23 @@
+SELECT DISTINCT @@SERVERNAME AS Server_Name,DB_NAME(dovs.database_id) DBName,
+mf.physical_name PhysicalFileLocation,
+dovs.logical_volume_name AS LogicalName,
+[TOTAL_FILESIZE_MB] = CONVERT(DECIMAL(10,2),A.size/128.0),
+[USEDSPACE_MB] = CONVERT(DECIMAL(10,2),A.size/128.0 - ((A.size/128.0) - CAST(FILEPROPERTY(A.name, 'SPACEUSED') AS INT)/128.0))
+,[FREESPACE_MB] = CONVERT(DECIMAL(10,2),A.size/128.0 - CAST(FILEPROPERTY(A.name, 'SPACEUSED') AS INT)/128.0)
+,[FREESPACE_%] = CONVERT(DECIMAL(10,2),((A.size/128.0 - CAST(FILEPROPERTY(A.name, 'SPACEUSED') AS INT)/128.0)/(A.size/128.0))*100)
+,CASE mf.is_percent_growth WHEN 1 THEN CONVERT(VARCHAR(10),mf.growth) +'%' ELSE Convert(VARCHAR(10),mf.growth*8/1024) +' MB' END AS [Aouto_Growth]
+,dovs.volume_mount_point AS Drive,
+CONVERT(INT,dovs.available_bytes/1048576.0)/1024  AS FreeSpace_In_Drive_GB
+INTO #temp
+FROM sys.master_files mf
+CROSS APPLY sys.dm_os_volume_stats(mf.database_id, mf.file_id) dovs
+JOIN sys.database_files A ON A.file_id = mf.file_id
+ORDER BY DB_NAME(dovs.database_id) 
+SELECT Server_Name,DBName,PhysicalFileLocation,LogicalName,TOTAL_FILESIZE_MB,USEDSPACE_MB,FREESPACE_MB,[FREESPACE_%],CASE Aouto_Growth 
+WHEN '0 MB' THEN 'AUTO_GROWTH_TURNED_OFF' ELSE 
+Aouto_Growth END AS [Aouto_Growth],DRIVE,FreeSpace_In_Drive_GB FROM #temp
+GO
+DROP TABLE #temp
+
+
+

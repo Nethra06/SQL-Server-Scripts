@@ -1,0 +1,30 @@
+Error:
+
+Replication-Replication Distribution Subsystem: agent DWS04-tmxa_data_repl-REPL_FBOPNPOD_only-BSE04\SQL05-49 scheduled for retry. Transaction (Process ID 69) was deadlocked on lock resources with another process and has been chosen as the deadlock victim. Rerun the transaction.
+
+Action:-
+
+Run the deadlock trace and get page id from graph through profiler or 
+open deadlock trace DBCC TRACEON(1222,1205,3205,-1) and get that.(Run on target - BSE04\SQL05)
+
+DBCC TRACEON (3604);
+DBCC PAGE (16, 1, 171, 0);  (DBCC PAGE('DBID','FILEID','PAGE ID','PRINTOPT')
+DBCC TRACEOFF (3604);
+GO
+
+
+ge the metadata object id from the above syntax and run following
+
+SELECT * FROM sysobjects WHERE id LIKE '469576711%'
+
+--
+
+In this case the table is - MSreplication_subscriptions - table on tmxa_data_repl database.
+
+To solve the issue run the below command:-
+
+
+DBCC UPDATEUSAGE (tmxa_data_repl, 'MSreplication_subscriptions') WITH COUNT_ROWS
+GO
+ALTER INDEX ALL ON [dbo].[MSreplication_subscriptions] REBUILD
+GO

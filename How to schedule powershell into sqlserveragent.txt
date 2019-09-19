@@ -1,0 +1,7 @@
+->In the job step give the name of the job 
+->choose as "Operating system Exec"
+->Choose as "SQLSERVER Agent account"
+In the command we should give as like below :
+
+Example - >
+C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe D:\CP_Custom_Code\AD\GetADCSV.ps1

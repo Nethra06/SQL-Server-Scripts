@@ -1,0 +1,5 @@
+
+
+Try entering the actual instance name in "ServerHost" under
+
+HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL11.MSSQLSERVER\SQLServerAgent

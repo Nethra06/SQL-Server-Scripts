@@ -1,0 +1,4 @@
+
+SELECT 'ALTER AUTHORIZATION ON SCHEMA::[' +s.name + '] TO dbo'
+ FROM sys.schemas s
+ WHERE s.principal_id = USER_ID('<user_id>');

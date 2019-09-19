@@ -1,0 +1,11 @@
+DELETE FROM [SSISDB].[internal].[operation_permissions] WHERE USER_NAME(sid) IS NULL;
+ GO
+ 
+DELETE FROM [SSISDB].[internal].[project_permissions] WHERE USER_NAME(sid) IS NULL;
+ GO
+ 
+DELETE FROM [SSISDB].[internal].[folder_permissions] WHERE USER_NAME(sid) IS NULL;
+ GO
+ 
+DELETE FROM [SSISDB].[internal].[environment_permissions] WHERE USER_NAME(sid) IS NULL;
+ GO

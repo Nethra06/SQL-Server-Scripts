@@ -1,0 +1,13 @@
+Click the "Start" button from the desktop and then click the "All Programs" option.
+ 
+Click the "Accessories" option and then click the "Windows PowerShell" option. The PowerShell program launches on your screen.
+ 
+Enter "Dir WSMan:\localhost\shell" into the command line and then press the "Enter" key on your keyboard.
+ 
+View the list of configuration settings and look for the "IdleTimeout" field.
+ 
+Enter "Set-Item WSMan:\localhost\shell\IdleTimeout" into the command line, and then press the "spacebar" key.
+ 
+Enter the number, in milliseconds, that determines how long a session is disconnected before it is disregarded.
+ 
+Press the "Enter" key and then the new timeout setting is configured.

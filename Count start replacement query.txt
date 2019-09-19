@@ -1,0 +1,6 @@
+select distinct(b.rowcnt),c.name from sys.sysobjects a join sys.sysindexes b
+on a.id = b.id 
+join sys.objects c
+on b.id = c.object_id
+where c.name = 'GroupsContact'
+and b.rowcnt <> 0

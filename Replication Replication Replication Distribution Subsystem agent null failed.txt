@@ -1,0 +1,13 @@
+
+Sample error in log :  Replication-Replication Distribution Subsystem: agent (null) failed. The publication 'TKMNA01SQL1030_AERO_REPL_PRD_REPL_FBCOILD_only' does not exist.
+
+solution:
+
+use distribution
+SELECT TOP 5 *
+FROM msdb.dbo.sysreplicationalerts
+WHERE alert_error_text like 'Replication-Replication Distribution Subsystem: agent (null) failed%'
+ORDER BY time DESC
+
+
+get the subscriber -> go to jobs -> find the job whixh is in between retires or relevant and disable / stop job

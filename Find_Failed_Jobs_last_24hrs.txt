@@ -1,0 +1,45 @@
+  
+IF NOT OBJECT_ID('tempdb..#jlist') IS NULL    
+DROP TABLE #jlist    
+ 
+---- local server    
+SELECT     
+ [server],    
+ j.name AS jname,    
+ CASE h.run_status     
+ WHEN 0 THEN 'FAILED'     
+ WHEN 1 THEN 'Successful '     
+ WHEN 2 THEN 'Unknown    '    
+ WHEN 3 THEN 'CANCELLED  '     
+ WHEN 4 THEN 'EXECUTING  '     
+ END AS jstatus,    
+ CASE     
+ WHEN (h.run_date > 0) AND (h.run_time > 0)      
+ AND (NOT h.run_date IS NULL) AND (NOT h.run_time IS NULL)    
+     THEN  (CONVERT(DATETIME, RTRIM(h.run_date)) +      
+     (h.run_time * 9 + h.run_time % 10000 * 6 + h.run_time % 100 * 10) / 216e4)    
+     END AS fullruntime    
+     INTO #jlist    
+        FROM msdb..sysjobhistory h    
+        INNER JOIN msdb..sysjobs j ON h.job_id = j.job_id    
+WHERE step_id = 0    
+ORDER BY j.name DESC, fullruntime, run_status    
+    
+---  Set the date if it isn't a date -- bug work-around    
+update #jlist    
+set fullruntime = cast('1900-01-01' as datetime)    
+where isdate(fullruntime) = 0    
+    
+---  Failed Jobs only    
+    
+    
+select upper([server]) AS Server_Name,
+		jname as Job_Name, 
+		convert(varchar(25), max(fullruntime), 100) as Last_Failure, 
+		count(*) as Total_Count
+from #jlist
+where isdate(fullruntime) = 1 
+and cast(fullruntime as datetime) > dateadd(d, -1, getdate()) 
+	and jstatus = 'FAILED'
+group by [server], jname, jstatus
+order by upper([server]), jname, jstatus

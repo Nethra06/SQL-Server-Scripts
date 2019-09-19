@@ -1,0 +1,55 @@
+DECLARE @dbid tinyint
+DECLARE @spid smallint
+DECLARE @exec_str varchar(10)
+
+
+-- Get the ID of the Database you wish to kill the connections of
+SET @dbid = DB_ID('database_name')
+
+-- Set a var to the first process ID connecting to that database
+SET @spid = (SELECT MIN(spid) FROM master..sysprocesses WHERE dbid = @dbid)
+
+WHILE @spid IS NOT NULL
+BEGIN
+ IF @spid <> @@SPID -- Make sure you don't drop your own connection
+ BEGIN
+ SET @exec_str = 'KILL '+LTRIM(STR(@spid))
+ EXEC(@exec_str) -- Kill the connection
+ END
+ --Get next SPID
+ SET @spid = (SELECT MIN(spid) FROM master..sysprocesses WHERE dbid = @dbid AND spid > @spid)
+END 
+
+--restoring database
+
+Restore database <db> from disk = ''
+with 
+move '' to '',
+move '' to '',
+stats = 10,replace
+go
+
+--Fix orphan user
+
+use <db name>
+
+BEGIN
+ DECLARE @username varchar(25)
+ DECLARE fixusers CURSOR
+ FOR
+ SELECT UserName = name FROM sysusers
+  WHERE issqluser = 1 and (sid is not null and sid <> 0x0)
+   and suser_sname(sid) is null
+    ORDER BY name
+ OPEN fixusers
+ FETCH NEXT FROM fixusers
+ INTO @username
+ WHILE @@FETCH_STATUS = 0
+ BEGIN
+  EXEC sp_change_users_login 'update_one', @username, @username
+  FETCH NEXT FROM fixusers
+  INTO @username
+ END
+ CLOSE fixusers
+ DEALLOCATE fixusers
+END

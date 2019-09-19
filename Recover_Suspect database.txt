@@ -1,0 +1,11 @@
+EXEC sp_resetstatus [qmrmdb];
+
+ALTER DATABASE [qmrmdb] SET EMERGENCY
+
+DBCC checkdb (qmrmdb)
+
+ALTER DATABASE [qmrmdb] SET SINGLE_USER WITH ROLLBACK IMMEDIATE
+
+DBCC CheckDB (qmrmdb, REPAIR_ALLOW_DATA_LOSS)
+
+ALTER DATABASE [qmrmdb] SET MULTI_USER

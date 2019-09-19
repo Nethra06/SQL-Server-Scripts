@@ -1,0 +1,31 @@
+-- This query identifies indexes on a database that need to be rebuilt.
+--
+-- The recommendation is to rebuilt queries whose fragmentation exceeds 30.0% 
+-- and who page count exceeds 50 pages.  These parameters may be adjusted below.
+
+DECLARE @page_count_minimum smallint     
+DECLARE @fragmentation_minimum float
+
+SET @page_count_minimum   = 10
+SET @fragmentation_minimum   = 10
+		
+SELECT
+	sys.objects.name AS Table_Name,
+	sys.indexes.name AS Index_Name,	
+	avg_fragmentation_in_percent AS frag,
+	page_count AS page_count,
+	sys.dm_db_index_physical_stats.object_id AS objectid,
+	sys.dm_db_index_physical_stats.index_id AS indexid,
+	partition_number AS partitionnum
+FROM sys.dm_db_index_physical_stats (DB_ID(), NULL, NULL , NULL, 'LIMITED')
+	inner join sys.objects 
+		on sys.objects.object_id = sys.dm_db_index_physical_stats.object_id
+	inner join sys.indexes 
+		on sys.indexes.index_id = sys.dm_db_index_physical_stats.index_id 
+			and sys.indexes.object_id = sys.dm_db_index_physical_stats.object_id
+WHERE avg_fragmentation_in_percent > @fragmentation_minimum 
+	AND sys.dm_db_index_physical_stats.index_id > 0 
+	AND page_count > @page_count_minimum
+ORDER BY page_count DESC
+
+

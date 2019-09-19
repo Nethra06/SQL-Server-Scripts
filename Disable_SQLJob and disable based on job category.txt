@@ -1,0 +1,72 @@
+USE msdb
+
+DECLARE @updated_schedules table
+(
+     schedule_id int,
+     job_id      uniqueidentifier,
+     job_name    sysname
+)
+
+UPDATE  ss
+SET     ss.[enabled] = 0
+OUTPUT  INSERTED.schedule_id,
+         sj.job_id,
+         sj.name
+INTO    @updated_schedules
+FROM    msdb.dbo.sysjobs sj
+         INNER JOIN msdb.dbo.sysjobschedules sjs
+             ON sj.job_id = sjs.job_id
+         INNER JOIN msdb.dbo.sysschedules ss
+             ON sjs.schedule_id = ss.schedule_id
+             JOIN MSDB.dbo.syscategories sc
+             ON sj.category_id = sc.category_id
+             WHERE sc.[Name] = 'Report server'
+             
+DECLARE @schedule_id    int,
+         @job_id         uniqueidentifier,
+         @job_name       sysname
+
+DECLARE csr CURSOR FAST_FORWARD READ_ONLY
+FOR 
+     SELECT  schedule_id,
+             job_id,
+             job_name
+     FROM    @updated_schedules
+
+OPEN csr
+
+FETCH NEXT FROM csr INTO @schedule_id, @job_id, @job_name
+
+WHILE @@FETCH_STATUS <> -1
+  BEGIN
+     
+     EXECUTE msdb.dbo.sp_sqlagent_notify @op_type     = N'S',
+                                         @job_id      = @job_id,
+                                         @schedule_id = @schedule_id,
+                                         @action_type = N'U'
+     
+     PRINT 'Called sp_sqlagent_notify for ' + @job_name
+     
+     FETCH NEXT FROM csr INTO @schedule_id, @job_id, @job_name
+     
+  END
+
+CLOSE csr
+DEALLOCATE csr
+
+
+--USE MSDB;
+--GO
+--SELECT *
+--FROM    msdb.dbo.sysjobs sj
+--         INNER JOIN msdb.dbo.sysjobschedules sjs
+--             ON sj.job_id = sjs.job_id
+--         INNER JOIN msdb.dbo.sysschedules ss
+--             ON sjs.schedule_id = ss.schedule_id
+--             JOIN MSDB.dbo.syscategories sc
+--             ON sj.category_id = sc.category_id
+--WHERE sc.[Name] = 'Report server';
+--GO
+
+
+

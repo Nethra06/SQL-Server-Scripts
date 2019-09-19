@@ -1,0 +1,105 @@
+SET NOCOUNT ON
+
+-- To collect all orphan database from an existing server so we can skip these in our create user script
+
+IF OBJECT_ID('tempdb..#OrphenUsers') IS NOT NULL DROP TABLE #OrphenUsers;
+
+CREATE TABLE #OrphenUsers
+(
+ UserName  sysname
+)
+
+INSERT INTO #OrphenUsers
+SELECT u.name AS [Orphaned USER]
+FROM sys.database_principals AS u
+WHERE NOT EXISTS(SELECT l.sid
+                 FROM sys.server_principals AS l
+                 WHERE l.sid=u.sid) AND u.type IN('U','G','S') AND u.name NOT IN('guest','INFORMATION_SCHEMA','sys')
+
+-- to findout existing appliction and database roles for create users commands
+
+SELECT 'USE '+QUOTENAME(DB_NAME()) --AS cmd
+UNION ALL
+SELECT 'Go'
+UNION ALL
+SELECT p.cmd
+FROM (SELECT 'IF NOT EXiSTS (SELECT * FROM sys.database_principals WHERE name = '''+name+''') CREATE ROLE '+QUOTENAME(name)+';' AS cmd,name AS UserName
+      FROM sys.database_principals
+      WHERE type IN('A','R')
+      UNION ALL
+
+-- to findout existing SQL users, Windows users and Windows Groups for create users commands
+
+      SELECT 'IF NOT EXiSTS (SELECT * FROM sys.database_principals WHERE name = '''+name+''') Create User '+QUOTENAME(name)+' FOR lOGIN '+QUOTENAME(SUSER_SNAME(sid))+' WITH DEFAULT_SCHEMA = '+QUOTENAME(default_schema_name)+';' AS cmd,name AS UserName
+      FROM sys.database_principals
+      WHERE type IN('S','U','G') AND default_schema_name IS NOT NULL AND QUOTENAME(name)+QUOTENAME(SUSER_SNAME(sid))+QUOTENAME(default_schema_name) IS NOT NULL AND name NOT IN('dbo','guest') AND name NOT LIKE '##%'
+
+--order by default_schema_name 
+
+      UNION ALL
+
+-- To findout Existing SQL Users, Windows Users and Windows Groups for Create Users commands where their default schema is NULL 
+
+      SELECT name AS cmd,UserName
+      FROM (SELECT 'IF NOT EXiSTS (SELECT * FROM sys.database_principals WHERE name = '''+name+''') Create User '+QUOTENAME(name)+' FOR lOGIN '+QUOTENAME(SUSER_SNAME(sid))+';' AS name,name AS UserName
+            FROM sys.database_principals
+            WHERE type IN('S','U','G')) AS p
+      WHERE name IS NOT NULL
+      UNION ALL
+
+--Scriptout all Schemas
+
+      SELECT 'IF schema_id('''+name+''') is null Execute ( ''CREATE SCHEMA '+QUOTENAME(name)+' AUTHORIZATION '+QUOTENAME(USER_NAME(principal_id))+''')' AS cmd,name AS UserName
+      FROM sys.schemas
+      WHERE schema_name(SCHEMA_ID) NOT IN('dbo','guest','INFORMATION_SCHEMA','sys','db_owner','db_accessadmin','db_securityadmin','db_ddladmin','db_backupoperator','db_datareader','db_datawriter','db_denydatareader','db_denydatawriter')
+      UNION ALL
+
+-- To findout Existing users role level permissions
+    SELECT * FROM (
+      SELECT CASE
+               WHEN(r.principal_id IS NULL) THEN Null
+               ELSE 'Execute sp_addrolemember '''+ r.name +''' , '''+u.name+''' ;' 
+             END AS cmd
+             ,u.name AS UserName
+      FROM sys.database_principals u
+      LEFT JOIN(sys.database_role_members m
+                JOIN sys.database_principals r ON m.role_principal_id=r.principal_id) ON m.member_principal_id=u.principal_id
+      LEFT JOIN sys.server_principals l ON u.sid=l.sid
+      WHERE u.type<>'R' AND u.principal_id IS NOT NULL AND u.name<>'dbo' AND u.name NOT LIKE '##%'
+    ) AS p WHERE cmd IS not null
+      UNION ALL
+
+-- To findout database, schema and object level user permissions
+SELECT 
+   CASE p.state_desc 
+     WHEN 'GRANT_WITH_GRANT_OPTION' THEN 'GRANT' 
+     ELSE p.state_desc  
+   END  
+     + ' ' + p.permission_name + ' ON ' + 
+   CASE p.CLASS 
+     WHEN 0 THEN 'DATABASE::' + QUOTENAME(DB_NAME()) 
+     WHEN 1 THEN 'OBJECT::' + QUOTENAME(SCHEMA_NAME(o.schema_id)) + '.' + QUOTENAME(o.[name])
+     WHEN 3 THEN 'SCHEMA::' + QUOTENAME(SCHEMA_NAME(p.major_id))
+   END  
+     + ' TO ' + QUOTENAME(USER_NAME(grantee_principal_id))+ 
+   CASE p.state_desc 
+     WHEN 'GRANT_WITH_GRANT_OPTION' THEN ' WITH GRANT OPTION;' 
+     ELSE ';'  
+   END  
+   COLLATE DATABASE_DEFAULT AS cmd 
+   , USER_NAME(grantee_principal_id) AS UserName
+FROM sys.database_permissions p 
+LEFT JOIN sys.all_objects o 
+ON p.major_id = o.OBJECT_ID 
+WHERE p.CLASS < 4 
+AND major_id >= 0 
+AND grantee_principal_id <> 1
+AND permission_name+SPACE(1)+p.STATE != 'Connect G'
+And USER_NAME(grantee_principal_id) <> 'public'
+) AS p 
+-- remove orphan users and their assocated schema as it will give errors when reapplying script
+WHERE p.UserName COLLATE DATABASE_DEFAULT NOT IN(SELECT UserName COLLATE DATABASE_DEFAULT
+                                                 FROM #OrphenUsers)
+
+-- drop temp table for OrphenUsers 
+IF OBJECT_ID('tempdb..#OrphenUsers') IS NOT NULL DROP TABLE #OrphenUsers;

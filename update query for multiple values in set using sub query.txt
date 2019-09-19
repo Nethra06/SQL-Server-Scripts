@@ -1,0 +1,6 @@
+
+UPDATE TMX  
+SET userName = (
+  SELECT 'tmxcsr'+ RIGHT( b.userName, 5 ) FROM TMX b
+  WHERE TMX.userName = b.userName
+)
